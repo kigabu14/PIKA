@@ -182,15 +182,9 @@
             <div class="mb-6">
                 <label class="block text-sm font-semibold text-gray-700 mb-3">🔧 เลือกวิธีการเก็บข้อมูล</label>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <label class="flex items-center p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-all">
-                        <input type="radio" name="storageMethod" value="localStorage" class="mr-3" checked>
-                        <div>
-                            <div class="font-bold text-blue-600">💻 Local Storage</div>
-                            <div class="text-xs text-gray-500">เก็บในเบราว์เซอร์</div>
-                        </div>
-                    </label>
+                  
                     <label class="flex items-center p-4 border-2 border-gray-200 rounded-xl cursor-pointer hover:bg-green-50 hover:border-green-300 transition-all">
-                        <input type="radio" name="storageMethod" value="googleSheets" class="mr-3">
+                        <input type="radio" name="storageMethod" value="googleSheets" class="mr-3"  >
                         <div>
                             <div class="font-bold text-green-600">📊 Google Sheets</div>
                             <div class="text-xs text-gray-500">เก็บออนไลน์</div>
@@ -219,7 +213,7 @@
             
             <div class="mb-6">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">🔗 Google Apps Script Web App URL</label>
-                <input type="text" id="appsScriptUrl" value="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec" placeholder="ใส่ URL ของ Google Apps Script Web App" class="w-full p-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                <input type="text" id="appsScriptUrl" value="https://script.google.com/macros/s/AKfycbz8xpaVLZGGlaWikhckQSACparpISNm2iTNAHpgAlfas8lBqqKqGFvj58iFjRHUqa525w/exec" placeholder="ใส่ URL ของ Google Apps Script Web App" class="w-full p-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
                 <p class="text-xs text-gray-500 mt-1">ตัวอย่าง: https://script.google.com/macros/s/AKfycby.../exec</p>
             </div>
             
@@ -285,37 +279,7 @@
             <div id="connectionStatus" class="mt-4 p-4 rounded-lg hidden">
                 <p id="statusMessage" class="font-semibold"></p>
             </div>
-            
-            <div class="mt-6 p-4 bg-yellow-50 rounded-xl border-l-4 border-yellow-400">
-                <h4 class="font-bold text-yellow-800 mb-2">📝 วิธีตั้งค่า Google Apps Script:</h4>
-                <div class="text-sm text-yellow-700 space-y-3">
-                    <div class="bg-white p-3 rounded-lg border border-yellow-200">
-                        <p class="font-bold text-yellow-800 mb-2">🔧 ขั้นตอนการตั้งค่า:</p>
-                        <ol class="list-decimal list-inside space-y-1">
-                            <li>เปิด Google Sheets ของคุณ</li>
-                            <li>ไปที่ Extensions → Apps Script</li>
-                            <li>คัดลอกโค้ด Apps Script ที่ให้ไว้ด้านล่าง</li>
-                            <li>บันทึกและ Deploy เป็น Web App</li>
-                            <li>ตั้งค่า Execute as: Me, Who has access: Anyone</li>
-                            <li>คัดลอก URL ที่ได้มาใส่ในช่องด้านบน</li>
-                        </ol>
-                    </div>
-                    <div class="bg-white p-3 rounded-lg border border-yellow-200">
-                        <p class="font-bold text-yellow-800 mb-1">📊 รูปแบบข้อมูลใน Google Sheets:</p>
-                        <p><strong>ชีตพนักงาน:</strong> empId | ชื่อ | ตำแหน่ง | ค่าแรงต่อวัน</p>
-                        <p><strong>ชีตวันทำงาน:</strong> empId | วันที่ (yyyy-mm-dd)</p>
-                    </div>
-                    <div class="bg-gray-800 p-4 rounded-lg border border-yellow-200 mt-3">
-                        <p class="font-bold text-yellow-300 mb-2">💻 โค้ด Google Apps Script:</p>
-                        <div class="bg-black p-3 rounded text-green-400 text-xs font-mono overflow-x-auto">
 
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-        </div>
 
         <!-- Employee Management -->
         <div class="glass-effect rounded-2xl shadow-xl p-8 mb-8 card-hover">
