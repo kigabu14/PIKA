@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_URL/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwj-vmIHaJZTJ94SqWXmUnKbIQX_I5eT4slQ1fEuXQ8evxuYZUokZU7MVD2u01z-Vc-nA/exec";
 let employees = [];
 let selectedMonth = new Date().getMonth();
 let selectedYear = new Date().getFullYear();
