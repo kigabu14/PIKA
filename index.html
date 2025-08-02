@@ -590,7 +590,7 @@
                 console.log('พบ Google Apps Script URL - เริ่ม fetch ข้อมูลอัตโนมัติ...');
                 setTimeout(() => {
                     loadFromGoogleSheets();
-                }, 800);
+                }, 500);
             } else {
                 console.log('ไม่พบ Google Apps Script URL - เริ่มต้นด้วยข้อมูลว่าง');
             }
@@ -721,7 +721,7 @@
                 console.log('URL เปลี่ยนแปลง - เริ่ม fetch ข้อมูลใหม่...');
                 setTimeout(() => {
                     loadFromGoogleSheets();
-                }, 250); // รอ 1 วินาทีหลังจากหยุดพิมพ์
+                }, 1000); // รอ 1 วินาทีหลังจากหยุดพิมพ์
             }
         });
 
@@ -1637,7 +1637,7 @@
                     throw new Error(`การบันทึกวันทำงานล้มเหลว: ${workResult.error}`);
                 }
                 
-                showConnectionStatus(`บันทึกข้อมูลสำเร็จ! พนักงาน ${employeeData.length} คน, วันทำงาน ${workdayData.length} รายการ`,true);
+                showConnectionStatus(`บันทึกข้อมูลสำเร็จ! พนักงาน ${employeeData.length} คน, วันทำงาน ${workdayData.length} รายการ`,false);
                 
             } catch (error) {
                 console.error('Save to sheets failed:', error);
