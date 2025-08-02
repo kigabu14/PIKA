@@ -1637,7 +1637,7 @@
                     throw new Error(`การบันทึกวันทำงานล้มเหลว: ${workResult.error}`);
                 }
                 
-                showConnectionStatus(`บันทึกข้อมูลสำเร็จ! พนักงาน ${employeeData.length} คน, วันทำงาน ${workdayData.length} รายการ`);
+                showConnectionStatus(`บันทึกข้อมูลสำเร็จ! พนักงาน ${employeeData.length} คน, วันทำงาน ${workdayData.length} รายการ`,true);
                 
             } catch (error) {
                 console.error('Save to sheets failed:', error);
@@ -1929,7 +1929,7 @@
             switch(selectedMethod) {
                 case 'localStorage':
                     saveToLocalStorage();
-                    //autoSaveToGoogleSheets();
+                
                     break;
                 case 'googleSheets':
                     autoSaveToGoogleSheets();
@@ -2051,8 +2051,8 @@
                 
                 // ซ่อนข้อความหลัง 3 วินาที
                 setTimeout(() => {
-                //statusDiv.classList.add('hidden');
-        //    },  5000);
+                statusDiv.classList.add('hidden');
+           },  5000);
                 
             } catch (error) {
                 console.error('การบันทึกอัตโนมัติล้มเหลว:', error);
