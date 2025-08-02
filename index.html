@@ -1478,7 +1478,7 @@
             
             if (!config.appsScriptUrl || config.appsScriptUrl.includes('YOUR_SCRIPT_ID')) {
                 showConnectionStatus('กรุณาใส่ Google Apps Script URL ที่ถูกต้อง');
-                //updateEmployeeSelect(); // ใช้ข้อมูลตัวอย่าง
+                updateEmployeeSelect(); // ใช้ข้อมูลตัวอย่าง
                 return;
             }
 
@@ -1637,7 +1637,7 @@
                     throw new Error(`การบันทึกวันทำงานล้มเหลว: ${workResult.error}`);
                 }
                 
-                showConnectionStatus(`บันทึกข้อมูลสำเร็จ! พนักงาน ${employeeData.length} คน, วันทำงาน ${workdayData.length} รายการ`, false);
+                showConnectionStatus(`บันทึกข้อมูลสำเร็จ! พนักงาน ${employeeData.length} คน, วันทำงาน ${workdayData.length} รายการ`);
                 
             } catch (error) {
                 console.error('Save to sheets failed:', error);
