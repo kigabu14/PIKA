@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>โปรแกรมคำนวณเงินเดือน V23+ (ค่าข้าวรายเดือน/รายวัน + ส่งออกรายงาน .txt)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+    body{
+      font-family:'Sarabun',sans-serif;
+      background:linear-gradient(135deg,#667eea 0%,#764ba2 25%,#f093fb 50%,#f5576c 75%,#4facfe 100%);
+      background-size:400% 400%;
+      animation:gradientShift 15s ease infinite;
+      min-height:100vh
+    }
+    @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+    .glass{backdrop-filter:blur(16px);background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.28)}
+    .neon{position:relative;overflow:hidden;transition:transform .2s ease,box-shadow .2s ease}
+    .neon:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,.18)}
+    .calendar-day{transition:all .15s ease}
+    .badge{border-radius:999px;padding:.25rem .6rem;font-weight:700;font-size:.75rem}
+    .status-work{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
+    .status-paid{background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff}
+    .status-absent{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+    .today{outline:3px solid #fb7185;box-shadow:0 0 12px rgba(251,113,133,.6)}
+    .legend-dot{width:14px;height:14px;border-radius:4px}
+    .dot-work{background:linear-gradient(135deg,#22c55e,#16a34a)}
+    .dot-paid{background:linear-gradient(135deg,#f59e0b,#f97316)}
+    .dot-absent{background:linear-gradient(135deg,#ef4444,#dc2626)}
+    .dot-none{background:#e5e7eb}
+    .switch{position:relative;display:inline-block;width:56px;height:30px}
+    .switch input{opacity:0;width:0;height:0}
+    .slider{position:absolute;cursor:pointer;inset:0;background:#e5e7eb;transition:.2s;border-radius:999px}
+    .slider:before{position:absolute;content:"";height:22px;width:22px;left:4px;top:4px;background:white;transition:.2s;border-radius:50%}
+    input:checked + .slider{background:#22c55e}
+    input:checked + .slider:before{transform:translateX(26px)}
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:50}
+    .modal.show{display:flex}
+  </style>
+</head>
+<body class="text-gray-800">
+  <div class="max-w-7xl mx-auto px-4 py-10">
+    <div class="text-center mb-10">
+      <h1 class="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg">💼 โปรแกรมคำนวณเงินเดือน V23+</h1>
+      <p class="text-white/90 mt-3 text-lg">ล็อคแก้ไข, หยุดได้สูงสุด 2 วัน, ค่าข้าวรายวัน/รายเดือน, ส่งออกรายงาน .txt</p>
+    </div>
+
+    <!-- จัดการข้อมูล -->
+    <div class="glass rounded-2xl p-6 md:p-8 mb-8">
+      <div class="flex items-center mb-6">
+        <div class="p-3 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 mr-3">
+          <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold">จัดการข้อมูล</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 mb-6">
+        <button id="addEmployeeBtn" class="neon bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-600 hover:from-pink-600 hover:via-purple-600 hover:to-indigo-700 text-white px-6 py-4 rounded-xl font-bold">➕ เพิ่มพนักงาน</button>
+        <button id="editEmployeeBtn" class="neon bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 hover:from-cyan-600 hover:via-blue-600 hover:to-purple-700 text-white px-6 py-4 rounded-xl font-bold">✏️ แก้ไข/ลบ พนักงาน</button>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-semibold mb-2">🔍 เลือกพนักงาน</label>
+        <select id="employeeSelect" class="w-full p-4 rounded-xl border-2 border-white/60 bg-white/80 focus:ring-4 focus:ring-indigo-200 focus:border-indigo-400">
+          <option value="">เลือกพนักงานเพื่อแสดงผล</option>
+        </select>
+      </div>
+
+      <!-- เชื่อมต่อ Google Sheets -->
+      <div class="mt-6 p-5 bg-white/75 rounded-xl border">
+        <div class="flex items-center mb-4">
+          <div class="p-2 rounded-full bg-gradient-to-r from-green-400 to-blue-500 mr-3">
+            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-bold">เชื่อมต่อ Google Sheets</h3>
+        </div>
+        <label class="block text-sm font-semibold mb-2">ลิงก์ Google Apps Script (Web App URL)</label>
+        <input id="appsScriptUrl" type="text" placeholder="https://script.google.com/macros/s/....../exec" class="w-full p-3 rounded-xl border-2 mb-3"/>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <button id="loadFromSheets" class="neon bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-5 py-3 rounded-xl font-bold">📥 ดึงข้อมูลจาก Sheets</button>
+          <button id="saveToSheets" class="neon bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-3 rounded-xl font-bold">📤 บันทึกขึ้น Sheets</button>
+        </div>
+        <p class="text-xs text-gray-600 mt-3">หมายเหตุ: ต้องใช้ Apps Script เวอร์ชันใหม่ที่รองรับฟิลด์ล่าสุด</p>
+      </div>
+
+      <div id="statusBanner" class="hidden mt-4 p-4 rounded-xl bg-white/80 border-2">
+        <p class="font-semibold" id="statusMessage"></p>
+      </div>
+    </div>
+
+    <!-- ข้อมูลพนักงาน -->
+    <div id="employeeInfo" class="glass rounded-2xl p-6 md:p-8 mb-8 hidden">
+      <div class="flex items-center mb-6">
+        <div class="p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 mr-3">
+          <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold">ข้อมูลพนักงาน</h2>
+      </div>
+      <div class="grid lg:grid-cols-5 gap-4">
+        <div class="bg-white/85 rounded-xl p-5 border"><div class="text-sm text-gray-500 mb-1">ชื่อ</div><div id="infoName" class="text-xl font-bold">-</div></div>
+        <div class="bg-white/85 rounded-xl p-5 border"><div class="text-sm text-gray-500 mb-1">ประเภทเงินเดือน</div><div id="infoType" class="text-xl font-bold">-</div></div>
+        <div class="bg-white/85 rounded-xl p-5 border"><div class="text-sm text-gray-500 mb-1">อัตรา</div><div id="infoRate" class="text-xl font-bold">-</div></div>
+        <div class="bg-white/85 rounded-xl p-5 border"><div class="text-sm text-gray-500 mb-1">ค่าข้าว/วัน</div><div id="infoMeal" class="text-xl font-bold">-</div></div>
+        <div class="bg-white/85 rounded-xl p-5 border">
+          <div class="text-sm text-gray-500 mb-1">รวมการหัก/ทิป ในการคำนวณ</div>
+          <label class="switch">
+            <input id="includeAdjToggle" type="checkbox">
+            <span class="slider"></span>
+          </label>
+          <div class="text-xs text-gray-500 mt-2">เปิดเมื่ออยากคิดสุทธิ = รวม - หัก + ทิป</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ปฏิทิน -->
+    <div id="calendarSection" class="glass rounded-2xl p-6 md:p-8 mb-8 hidden">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+        <div class="flex items-center">
+          <div class="p-3 rounded-full bg-gradient-to-r from-green-500 to-blue-500 mr-3">
+            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold">ปฏิทินการทำงาน</h2>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button id="prevMonth" class="neon bg-gradient-to-r from-orange-500 to-rose-500 text-white px-4 py-3 rounded-xl font-bold">← เดือนก่อน</button>
+          <div id="currentMonth" class="text-xl font-extrabold text-white drop-shadow">-</div>
+          <button id="nextMonth" class="neon bg-gradient-to-r from-orange-500 to-rose-500 text-white px-4 py-3 rounded-xl font-bold">เดือนถัดไป →</button>
+        </div>
+      </div>
+
+      <div class="bg-white/85 rounded-xl p-4 mb-4 border flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="legend-dot dot-work"></div><span class="font-semibold">ทำงาน</span>
+          <div class="legend-dot dot-paid ml-6"></div><span class="font-semibold">หยุดได้ (ไม่หัก)</span>
+          <div class="legend-dot dot-absent ml-6"></div><span class="font-semibold">ขาด (หัก)</span>
+          <div class="legend-dot dot-none ml-6"></div><span class="font-semibold">ไม่ทำงาน</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-semibold">ปลดล็อกการแก้ไขปฏิทิน</span>
+          <label class="switch">
+            <input id="editLockToggle" type="checkbox">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="bg-white/85 rounded-xl p-4 mb-4 border">
+        <div class="grid grid-cols-7 gap-2 mb-3 text-center text-sm font-bold text-gray-600">
+          <div class="p-2 rounded">อา</div><div class="p-2 rounded">จ</div><div class="p-2 rounded">อ</div>
+          <div class="p-2 rounded">พ</div><div class="p-2 rounded">พฤ</div><div class="p-2 rounded">ศ</div><div class="p-2 rounded">ส</div>
+        </div>
+        <div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
+      </div>
+
+      <div class="bg-white/85 rounded-xl p-3 border text-center text-sm text-gray-600">
+        - รายวัน: เลือกเฉพาะ “ทำงาน” (ไม่มีหยุดได้)<br/>
+        - รายเดือน: เมื่อ “หยุดได้ครบ 2 วัน” แล้ว จะเปลี่ยนได้แค่ “ขาด/ทำงาน” เท่านั้น (คลิกวันเดิมเพื่อสลับ)
+      </div>
+    </div>
+
+    <!-- สรุป -->
+    <div id="summarySection" class="glass rounded-2xl p-6 md:p-8 mb-8 hidden">
+      <div class="flex items-center mb-6">
+        <div class="p-3 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 mr-3">
+          <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18"/>
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold">สรุปผล</h2>
+      </div>
+
+      <div class="grid lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white/85 rounded-xl p-5 border">
+          <div class="text-sm text-gray-500 mb-1">จำนวนวันที่มาทำงานรวม (เดือนนี้)</div>
+          <div id="workDays" class="text-4xl font-black text-emerald-600">0 วัน</div>
+        </div>
+        <div class="bg-white/85 rounded-xl p-5 border">
+          <div class="text-sm text-gray-500 mb-1">เงินครึ่งแรก (1-15)</div>
+          <div id="firstHalfSalary" class="text-3xl font-black text-orange-600">0 บาท</div>
+          <div id="firstHalfDays" class="text-sm font-semibold text-gray-600 mt-1">0 วัน</div>
+        </div>
+        <div class="bg-white/85 rounded-xl p-5 border">
+          <div class="text-sm text-gray-500 mb-1">เงินครึ่งหลัง (16-สิ้นเดือน)</div>
+          <div id="secondHalfSalary" class="text-3xl font-black text-teal-600">0 บาท</div>
+          <div id="secondHalfDays" class="text-sm font-semibold text-gray-600 mt-1">0 วัน</div>
+        </div>
+        <div class="bg-white/85 rounded-xl p-5 border">
+          <div class="text-sm text-gray-500 mb-1">รวมทั้งเดือน</div>
+          <div id="totalSalary" class="text-3xl font-extrabold text-indigo-700">0 บาท</div>
+          <div id="adjLine" class="text-xs text-gray-500 mt-1">สุทธิ (ถ้ารวมการหัก/ทิป): -</div>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-3">
+        <button id="btnAddDeduction" class="neon bg-gradient-to-r from-red-500 to-rose-600 text-white px-6 py-4 rounded-xl font-bold">➖ บันทึกการหักเงิน</button>
+        <button id="btnAddTip" class="neon bg-gradient-to-r from-amber-500 to-yellow-600 text-white px-6 py-4 rounded-xl font-bold">➕ บันทึกทิปพนักงาน</button>
+        <div class="flex gap-3 justify-center">
+          <button id="exportIndividualReport" class="neon bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 text-white px-6 py-4 rounded-xl font-bold">👤 ส่งออกรายงานรายคน (.txt)</button>
+          <button id="exportAllReport" class="neon bg-gradient-to-r from-rose-600 via-pink-600 to-fuchsia-600 text-white px-6 py-4 rounded-2xl font-bold">👥 ส่งออกรายงานทุกคน (.txt)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal เพิ่ม/แก้ พนักงาน -->
+  <div id="employeeModal" class="modal"><div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-lg">
+    <h3 id="modalTitle" class="text-2xl font-bold mb-4">เพิ่มพนักงาน</h3>
+    <form id="employeeForm" class="space-y-4">
+      <div><label class="block text-sm font-semibold mb-1">ชื่อ</label><input id="empNameInput" type="text" class="w-full p-3 rounded-xl border-2" required/></div>
+      <div><label class="block text-sm font-semibold mb-1">ประเภทเงินเดือน</label>
+        <select id="empTypeInput" class="w-full p-3 rounded-xl border-2" required>
+          <option value="daily">รายวัน</option>
+          <option value="monthly">รายเดือน</option>
+        </select>
+      </div>
+      <div><label id="rateLabel" class="block text-sm font-semibold mb-1">ค่าแรงต่อวัน (บาท)</label>
+        <input id="empRateInput" type="number" min="0" class="w-full p-3 rounded-xl border-2" required/>
+      </div>
+      <div id="mealWrapper">
+        <label class="block text-sm font-semibold mb-1">ค่าข้าวต่อวัน (บาท)</label>
+        <input id="empMealInput" type="number" min="0" class="w-full p-3 rounded-xl border-2" value="50"/>
+        <p class="text-xs text-gray-500 mt-1">- รายวัน: คิดเฉพาะวัน “ทำงาน”<br/>- รายเดือน: คิดเฉพาะวัน “ทำงาน” (ไม่คิดวัน “หยุดได้/ขาด”)</p>
+      </div>
+      <div id="paidLeaveWrapper" class="">
+        <label class="inline-flex items-center gap-3">
+          <input id="empPaidLeaveInput" type="checkbox" class="w-5 h-5"/>
+          <span class="text-sm font-semibold">คนนี้สามารถ “หยุดได้” (สูงสุด 2 วัน/เดือน)</span>
+        </label>
+        <p class="text-xs text-gray-500 mt-1">แนะนำเปิดเฉพาะ “รายเดือน”</p>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 neon bg-gradient-to-r from-emerald-500 to-green-600 text-white px-4 py-3 rounded-xl font-bold">บันทึก</button>
+        <button type="button" id="cancelModal" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-xl font-bold">ยกเลิก</button>
+      </div>
+    </form>
+  </div></div>
+
+  <!-- Modal เลือกพนักงานแก้ไข/ลบ -->
+  <div id="editEmployeeModal" class="modal"><div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-md">
+    <h3 class="text-2xl font-bold mb-4">แก้ไข/ลบ พนักงาน</h3>
+    <select id="editEmployeeSelect" class="w-full p-3 rounded-xl border-2 mb-4">
+      <option value="">เลือกพนักงาน</option>
+    </select>
+    <div class="flex gap-3">
+      <button id="confirmEdit" class="flex-1 neon bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-3 rounded-xl font-bold">แก้ไข</button>
+      <button id="deleteEmployee" class="flex-1 neon bg-gradient-to-r from-rose-500 to-red-600 text-white px-4 py-3 rounded-xl font-bold">ลบ</button>
+      <button id="cancelEditModal" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-xl font-bold">ยกเลิก</button>
+    </div>
+  </div></div>
+
+  <!-- Modal หักเงิน -->
+  <div id="deductionModal" class="modal"><div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-md">
+    <h3 class="text-2xl font-bold mb-4">บันทึกการหักเงินพนักงาน</h3>
+    <form id="deductionForm" class="space-y-3">
+      <div><label class="block text-sm font-semibold mb-1">วันที่</label><input id="deductDate" type="date" class="w-full p-3 rounded-xl border-2" required/></div>
+      <div><label class="block text-sm font-semibold mb-1">จำนวนเงินที่หัก (บาท)</label><input id="deductAmount" type="number" min="0" class="w-full p-3 rounded-xl border-2" required/></div>
+      <div><label class="block text-sm font-semibold mb-1">หมายเหตุ (ถ้ามี)</label><input id="deductNote" type="text" class="w-full p-3 rounded-xl border-2"/></div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 neon bg-gradient-to-r from-red-500 to-rose-600 text-white px-4 py-3 rounded-xl font-bold">บันทึก</button>
+        <button type="button" id="cancelDeduction" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-xl font-bold">ยกเลิก</button>
+      </div>
+    </form>
+  </div></div>
+
+  <!-- Modal ทิป -->
+  <div id="tipModal" class="modal"><div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-md">
+    <h3 class="text-2xl font-bold mb-4">บันทึกเงินพิเศษพนักงาน</h3>
+    <form id="tipForm" class="space-y-3">
+      <div><label class="block text-sm font-semibold mb-1">วันที่</label><input id="tipDate" type="date" class="w-full p-3 rounded-xl border-2" required/></div>
+      <div><label class="block text-sm font-semibold mb-1">จำนวนเงิน (บาท)</label><input id="tipAmount" type="number" min="0" class="w-full p-3 rounded-xl border-2" required/></div>
+      <div><label class="block text-sm font-semibold mb-1">หมายเหตุ (ถ้ามี)</label><input id="tipNote" type="text" class="w-full p-3 rounded-xl border-2"/></div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 neon bg-gradient-to-r from-amber-500 to-yellow-600 text-white px-4 py-3 rounded-xl font-bold">บันทึก</button>
+        <button type="button" id="cancelTip" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-xl font-bold">ยกเลิก</button>
+      </div>
+    </form>
+  </div></div>
+
+  <!-- Modal รายงานรวม (ตาราง + ยืนยันส่งออก) -->
+  <div id="allReportModal" class="modal">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="allReportTitle" class="text-2xl font-bold">รายงานรวม - เดือนนี้</h3>
+        <div class="flex gap-2">
+          <button id="confirmExportAllTxt" class="neon bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2 rounded-lg font-bold text-sm">📤 ส่งออกเป็น </button>
+          <button id="closeAllReport" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold text-sm">ปิด</button>
+        </div>
+      </div>
+      <div class="overflow-auto flex-1 border rounded-xl bg-white">
+        <table class="w-full text-sm">
+          <thead class="bg-indigo-600 text-white">
+            <tr>
+              <th class="px-3 py-2 text-left">ชื่อ</th>
+              <th class="px-3 py-2 text-left">ประเภท</th>
+              <th class="px-3 py-2 text-left">มาทำงาน</th>
+              <th class="px-3 py-2 text-left">หยุดได้</th>
+              <th class="px-3 py-2 text-left">ขาด</th>
+              <th class="px-3 py-2 text-right">ครึ่งแรก</th>
+              <th class="px-3 py-2 text-right">ครึ่งหลัง</th>
+              <th class="px-3 py-2 text-right">ค่าข้าว</th>
+              <th class="px-3 py-2 text-right">หักเงิน</th>
+              <th class="px-3 py-2 text-right">เงินเพิ่ม</th>
+              <th class="px-3 py-2 text-right">รวม/สุทธิ</th>
+            </tr>
+          </thead>
+          <tbody id="allReportBody"></tbody>
+        </table>
+      </div>
+      <div class="text-xs text-gray-600 mt-3">ตรวจสอบข้อมูลบนตารางก่อนกดส่งออกเป็นไฟล์ข้อความ</div>
+    </div>
+  </div>
+
+  <script>
+    // โครงสร้างข้อมูล
+    // employees[id] = { name, type:'daily'|'monthly', rate, meal, canPaidLeave }
+    // workMap[id][key] = 'work'|'paid'|'absent'  (รายวันใช้ 'work' เท่านั้น)
+    // deductions[id] = [{date,amount,note}], tips[id] = [{date,amount,note}]
+    let employees={}, workMap={}, deductions={}, tips={};
+    let currentEmployee=null, currentDate=new Date(), editingEmployee=null, employeeCounter=0, calendarUnlocked=false;
+
+    const thaiMonths=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      loadFromLocal();
+      bindUI();
+      refreshEmployeeSelect();
+    });
+
+    // Bind UI
+    function bindUI(){
+      byId('addEmployeeBtn').addEventListener('click', ()=>{ editingEmployee=null; openEmployeeModal(); });
+      byId('editEmployeeBtn').addEventListener('click', ()=>{ populateEditSelect(); showModal('editEmployeeModal'); });
+      byId('confirmEdit').addEventListener('click', handleEditOpen);
+      byId('deleteEmployee').addEventListener('click', handleDeleteEmployee);
+      byId('cancelEditModal').addEventListener('click', ()=> hideModal('editEmployeeModal'));
+      byId('cancelModal').addEventListener('click', ()=> hideModal('employeeModal'));
+
+      const typeInput=byId('empTypeInput');
+      typeInput.addEventListener('change', ()=>{
+        if(typeInput.value==='daily'){ byId('rateLabel').textContent='ค่าแรงต่อวัน (บาท)'; }
+        else{ byId('rateLabel').textContent='เงินเดือนทั้งเดือน (บาท)'; }
+      });
+
+      byId('employeeForm').addEventListener('submit', saveEmployeeFromModal);
+
+      byId('employeeSelect').addEventListener('change', e=>{
+        currentEmployee = e.target.value || null;
+        if(currentEmployee){
+          showEmployeeInfo(currentEmployee);
+          ensureMonthlyDefaults(currentEmployee);
+          renderCalendar(); renderSummary();
+          showSection(true);
+        }else showSection(false);
+      });
+
+      byId('prevMonth').addEventListener('click', ()=>{ currentDate.setMonth(currentDate.getMonth()-1); renderCalendar(); renderSummary(); });
+      byId('nextMonth').addEventListener('click', ()=>{ currentDate.setMonth(currentDate.getMonth()+1); renderCalendar(); renderSummary(); });
+
+      byId('editLockToggle').addEventListener('change', e=>{
+        calendarUnlocked = e.target.checked;
+        showBanner(calendarUnlocked?'ปลดล็อกการแก้ไขแล้ว':'ล็อกการแก้ไขแล้ว', true, 1500);
+      });
+      byId('includeAdjToggle').addEventListener('change', ()=> renderSummary());
+
+      // Google Sheets
+      byId('loadFromSheets').addEventListener('click', loadFromGoogleSheets);
+      byId('saveToSheets').addEventListener('click', saveToGoogleSheets);
+
+      // รายงาน .txt
+      byId('exportIndividualReport').addEventListener('click', exportIndividualReportTXT);
+      byId('exportAllReport').addEventListener('click', buildAndShowAllTable);
+      byId('confirmExportAllTxt').addEventListener('click', exportAllReportTXT);
+      byId('closeAllReport').addEventListener('click', ()=> hideModal('allReportModal'));
+
+      // หักเงิน/ทิป
+      byId('btnAddDeduction').addEventListener('click', ()=>{ if(!ensureEmployeeSelected()) return; showModal('deductionModal'); });
+      byId('btnAddTip').addEventListener('click', ()=>{ if(!ensureEmployeeSelected()) return; showModal('tipModal'); });
+      byId('deductionForm').addEventListener('submit', saveDeduction);
+      byId('tipForm').addEventListener('submit', saveTip);
+      byId('cancelDeduction').addEventListener('click', ()=> hideModal('deductionModal'));
+      byId('cancelTip').addEventListener('click', ()=> hideModal('tipModal'));
+    }
+
+    // Helpers
+    function byId(id){ return document.getElementById(id); }
+    function showSection(show){ ['employeeInfo','calendarSection','summarySection'].forEach(id=> byId(id).classList.toggle('hidden', !show)); }
+    function showModal(id){ byId(id).classList.add('show'); }
+    function hideModal(id){ byId(id).classList.remove('show'); }
+    function showBanner(msg, ok=true, timeout=2500){
+      const box=byId('statusBanner'), p=byId('statusMessage');
+      box.classList.remove('hidden');
+      box.classList.toggle('bg-green-50', ok);
+      box.classList.toggle('bg-red-50', !ok);
+      p.className = ok?'text-green-800 font-semibold':'text-red-800 font-semibold';
+      p.textContent = (ok?'✅ ':'❌ ') + msg;
+      if(timeout) setTimeout(()=> box.classList.add('hidden'), timeout);
+    }
+    function ensureEmployeeSelected(){ if(!currentEmployee){ showBanner('กรุณาเลือกพนักงานก่อน', false); return false; } return true; }
+    function num(n){ return Number(n).toLocaleString('th-TH'); }
+
+    // พนักงาน
+    function openEmployeeModal(id=null){
+      const title=byId('modalTitle'), nameI=byId('empNameInput'), typeI=byId('empTypeInput'), rateI=byId('empRateInput'), mealI=byId('empMealInput'), paidI=byId('empPaidLeaveInput');
+      if(id){
+        title.textContent='แก้ไขพนักงาน';
+        const emp=employees[id];
+        nameI.value=emp.name; typeI.value=emp.type; rateI.value=emp.rate; mealI.value=emp.meal??50; paidI.checked=!!emp.canPaidLeave;
+      }else{
+        title.textContent='เพิ่มพนักงาน';
+        nameI.value=''; typeI.value='daily'; rateI.value=''; mealI.value=50; paidI.checked=false;
+      }
+      showModal('employeeModal');
+    }
+    function saveEmployeeFromModal(e){
+      e.preventDefault();
+      const name=byId('empNameInput').value.trim();
+      const type=byId('empTypeInput').value;
+      const rate=Math.max(0, Number(byId('empRateInput').value));
+      const meal=Math.max(0, Number(byId('empMealInput').value || 0));
+      const canPaidLeave=byId('empPaidLeaveInput').checked;
+      if(!name || isNaN(rate)) return;
+
+      if(editingEmployee){
+        const id=editingEmployee;
+        employees[id]={ name, type, rate, meal, canPaidLeave: type==='monthly'?canPaidLeave:canPaidLeave };
+        if(type==='monthly') ensureMonthlyDefaults(id);
+      }else{
+        employeeCounter++; const id='emp'+employeeCounter;
+        employees[id]={ name, type, rate, meal, canPaidLeave: type==='monthly'?canPaidLeave:canPaidLeave };
+        if(!workMap[id]) workMap[id]={}; if(!deductions[id]) deductions[id]=[]; if(!tips[id]) tips[id]=[];
+        if(type==='monthly') ensureMonthlyDefaults(id);
+      }
+      saveToLocal(); refreshEmployeeSelect();
+      if(currentEmployee){ showEmployeeInfo(currentEmployee); renderCalendar(); renderSummary(); }
+      hideModal('employeeModal');
+    }
+    function populateEditSelect(){
+      const sel=byId('editEmployeeSelect'); sel.innerHTML='<option value="">เลือกพนักงาน</option>';
+      Object.keys(employees).forEach(id=>{ const o=document.createElement('option'); o.value=id; o.textContent=employees[id].name; sel.appendChild(o); });
+    }
+    function handleEditOpen(){
+      const id=byId('editEmployeeSelect').value; if(!id) return;
+      editingEmployee=id; hideModal('editEmployeeModal'); openEmployeeModal(id);
+    }
+    function handleDeleteEmployee(){
+      const id=byId('editEmployeeSelect').value; if(!id) return;
+      if(confirm('ยืนยันการลบพนักงานคนนี้?')){
+        delete employees[id]; delete workMap[id]; delete deductions[id]; delete tips[id];
+        if(currentEmployee===id){ currentEmployee=null; byId('employeeSelect').value=''; showSection(false); }
+        saveToLocal(); refreshEmployeeSelect(); hideModal('editEmployeeModal'); showBanner('ลบพนักงานเรียบร้อย', true);
+      }
+    }
+    function refreshEmployeeSelect(){
+      const sel=byId('employeeSelect'); const curr=sel.value;
+      sel.innerHTML='<option value="">เลือกพนักงานเพื่อแสดงผล</option>';
+      Object.keys(employees).forEach(id=>{ const opt=document.createElement('option'); opt.value=id; opt.textContent=`👤 ${employees[id].name}`; sel.appendChild(opt); });
+      if(curr && employees[curr]) sel.value=curr;
+    }
+    function showEmployeeInfo(id){
+      const emp=employees[id];
+      byId('infoName').textContent=emp.name;
+      byId('infoType').textContent=emp.type==='daily'?'รายวัน':'รายเดือน';
+      byId('infoRate').textContent=emp.type==='daily' ? `${num(emp.rate)} บาท/วัน` : `${num(emp.rate)} บาท/เดือน (คิด ${num(emp.rate/30)} บาท/วัน)`;
+      byId('infoMeal').textContent=`${num(emp.meal??0)} บาท/วัน`;
+    }
+
+    // ค่าเริ่มต้นรายเดือนเป็น "ทำงาน" ทั้งเดือน
+    function ensureMonthlyDefaults(empId){
+      const emp=employees[empId]; if(!emp || emp.type!=='monthly') return;
+      if(!workMap[empId]) workMap[empId]={};
+      const y=currentDate.getFullYear(), m=currentDate.getMonth(), days=new Date(y,m+1,0).getDate();
+      for(let d=1; d<=days; d++){ const key=`${y}-${m}-${d}`; if(!workMap[empId][key]) workMap[empId][key]='work'; }
+    }
+
+    // ปฏิทิน
+    function renderCalendar(){
+      if(!currentEmployee) return;
+      const emp=employees[currentEmployee], y=currentDate.getFullYear(), m=currentDate.getMonth();
+      byId('currentMonth').textContent=`${thaiMonths[m]} ${y+543}`;
+      if(emp.type==='monthly') ensureMonthlyDefaults(currentEmployee);
+
+      const grid=byId('calendarGrid'); grid.innerHTML='';
+      const first=new Date(y,m,1), start=new Date(first); start.setDate(start.getDate()-first.getDay());
+      const todayStr=new Date().toDateString();
+
+      for(let i=0;i<42;i++){
+        const dt=new Date(start); dt.setDate(start.getDate()+i);
+        const inMonth=dt.getMonth()===m, key=`${y}-${m}-${dt.getDate()}`, st=(workMap[currentEmployee]||{})[key]||null;
+
+        const cell=document.createElement('div'); cell.className='calendar-day rounded-xl border p-3 text-center select-none bg-white';
+        if(!inMonth){ cell.classList.add('opacity-60','bg-gray-50'); }
+        const numDiv=document.createElement('div'); numDiv.className='text-lg font-extrabold'; numDiv.textContent=dt.getDate(); cell.appendChild(numDiv);
+
+        if(inMonth && st){
+          const b=document.createElement('div'); b.className='badge mt-2 inline-block';
+          if(st==='work'){ b.classList.add('status-work'); b.textContent='ทำงาน'; }
+          if(st==='paid'){ b.classList.add('status-paid'); b.textContent='หยุดได้'; }
+          if(st==='absent'){ b.classList.add('status-absent'); b.textContent='ขาด'; }
+          cell.appendChild(b);
+        }
+        if(dt.toDateString()===todayStr) cell.classList.add('today');
+
+        if(inMonth){
+          cell.style.cursor='pointer';
+          cell.addEventListener('click', ()=>{
+            if(!calendarUnlocked){ showBanner('โปรด “ปลดล็อกการแก้ไขปฏิทิน” ก่อน', false, 1800); return; }
+            toggleStatus(emp, key, m);
+            renderCalendar(); renderSummary(); saveToLocal();
+          });
+        }
+        grid.appendChild(cell);
+      }
+    }
+
+    // เปลี่ยนสถานะ (หยุดได้ครบ 2 วันแล้ว เหลือแค่ ขาด/ทำงาน)
+    function toggleStatus(emp, key, monthIndex){
+      if(!workMap[currentEmployee]) workMap[currentEmployee]={};
+      const current=workMap[currentEmployee][key] || null;
+
+      if(emp.type==='daily'){
+        if(current==='work'){ delete workMap[currentEmployee][key]; }
+        else{ workMap[currentEmployee][key]='work'; }
+        return;
+      }
+
+      const y=currentDate.getFullYear();
+      const paidCount = countStatusInMonth(currentEmployee,y,monthIndex,'paid');
+      const paidFull = paidCount >= 2;
+      let next;
+      if(!paidFull){
+        if(current==='work') next='paid';
+        else if(current==='paid') next='absent';
+        else if(current==='absent') next='work';
+        else next='work';
+        if(next==='paid'){
+          if(!emp.canPaidLeave){ showBanner('พนักงานคนนี้ไม่ได้รับสิทธิ “หยุดได้”', false); next='work'; }
+          else if(paidCount >= 2){ showBanner('ครบ “หยุดได้” 2 วันแล้ว', false); next='work'; }
+        }
+      }else{
+        if(current==='work') next='absent';
+        else if(current==='absent') next='work';
+        else if(current==='paid') next='absent'; // วันเดิมที่เป็นหยุดได้ กดต่อไปเป็น "ขาด"
+        else next='work';
+      }
+      workMap[currentEmployee][key]=next;
+    }
+    function countStatusInMonth(empId,year,month,status){
+      let c=0, days=new Date(year,month+1,0).getDate(), map=workMap[empId]||{};
+      for(let d=1; d<=days; d++){ if(map[`${year}-${month}-${d}`]===status) c++; }
+      return c;
+    }
+
+    // สรุป (รายเดือนคิด 30 วันเสมอ: 15/15) + ค่าข้าว
+    function renderSummary(){
+      if(!currentEmployee) return;
+      const emp=employees[currentEmployee], y=currentDate.getFullYear(), m=currentDate.getMonth();
+      const daysInMonth=new Date(y,m+1,0).getDate();
+      let fw=0, sw=0, fa=0, sa=0, fwWorkOnly=0, swWorkOnly=0; // fw/sw = วันนับแสดงผล, fwWorkOnly/swWorkOnly = วัน "ทำงาน" จริง
+
+      const map=workMap[currentEmployee]||{};
+      for(let d=1; d<=daysInMonth; d++){
+        const st=map[`${y}-${m}-${d}`]||null; const fh=d<=15;
+        if(emp.type==='daily'){
+          if(st==='work'){ if(fh) fw++; else sw++; }
+        }else{
+          if(st==='work'||st==='paid'){ if(fh) fw++; else sw++; }
+          if(st==='work'){ if(fh) fwWorkOnly++; else swWorkOnly++; }
+          if(st==='absent'){ if(fh) fa++; else sa++; }
+        }
+      }
+
+      let fhMoney=0, shMoney=0, total=0, mealTotal=0;
+      if(emp.type==='daily'){
+        const meal=Number(emp.meal??50);
+        fhMoney = fw*emp.rate + fw*meal;
+        shMoney = sw*emp.rate + sw*meal;
+        mealTotal = (fw+sw)*meal;
+        total = fhMoney + shMoney;
+      }else{
+        const perDay = emp.rate/30;
+        // ฐานเงินเดือน 15/15 หักเฉพาะ "ขาด"
+        const baseFH = perDay * (15 - fa);
+        const baseSH = perDay * (15 - sa);
+        // ค่าข้าว (เฉพาะวัน "ทำงาน" เท่านั้น)
+        const mealFH = (emp.meal??0) * fwWorkOnly;
+        const mealSH = (emp.meal??0) * swWorkOnly;
+        fhMoney = baseFH + mealFH;
+        shMoney = baseSH + mealSH;
+        mealTotal = mealFH + mealSH;
+        total = fhMoney + shMoney;
+      }
+
+      // รวมปรับ (หัก/ทิป)
+      const incAdj = byId('includeAdjToggle').checked;
+      const dedSum = sumAdj(deductions[currentEmployee], y, m);
+      const tipSum = sumAdj(tips[currentEmployee], y, m);
+      const net = incAdj ? (total - dedSum + tipSum) : null;
+
+      byId('workDays').textContent = `${(fw+sw)} วัน`;
+      byId('firstHalfDays').textContent = `${fw} วัน`;
+      byId('secondHalfDays').textContent = `${sw} วัน`;
+      byId('firstHalfSalary').textContent = `${num(Math.round(fhMoney))} บาท`;
+      byId('secondHalfSalary').textContent = `${num(Math.round(shMoney))} บาท`;
+      byId('totalSalary').textContent = `${num(Math.round(total))} บาท`;
+      byId('adjLine').textContent = incAdj
+        ? `สุทธิ: ${num(Math.round(total - dedSum + tipSum))} บาท (หัก ${num(dedSum)} + ทิป ${num(tipSum)})`
+        : `สุทธิ (ถ้ารวมการหัก/ทิป): (${num(Math.round(total))} - หัก + ทิป)`;
+    }
+
+    function sumAdj(list,y,m){
+      let s=0; (list||[]).forEach(it=>{ const dt=new Date(it.date); if(!isNaN(dt) && dt.getFullYear()===y && dt.getMonth()===m) s+=Number(it.amount||0); });
+      return s;
+    }
+
+    // หักเงิน/ทิป
+    function saveDeduction(e){
+      e.preventDefault(); if(!ensureEmployeeSelected()) return;
+      const date=byId('deductDate').value, amount=Number(byId('deductAmount').value||0), note=byId('deductNote').value||'';
+      if(!deductions[currentEmployee]) deductions[currentEmployee]=[];
+      deductions[currentEmployee].push({date,amount,note});
+      hideModal('deductionModal'); saveToLocal(); renderSummary(); showBanner('บันทึกการหักเงินเรียบร้อย', true); e.target.reset();
+    }
+    function saveTip(e){
+      e.preventDefault(); if(!ensureEmployeeSelected()) return;
+      const date=byId('tipDate').value, amount=Number(byId('tipAmount').value||0), note=byId('tipNote').value||'';
+      if(!tips[currentEmployee]) tips[currentEmployee]=[];
+      tips[currentEmployee].push({date,amount,note});
+      hideModal('tipModal'); saveToLocal(); renderSummary(); showBanner('บันทึกทิปเรียบร้อย', true); e.target.reset();
+    }
+
+    // Local storage
+    function saveToLocal(){ localStorage.setItem('salary_v23_meal', JSON.stringify({employees, workMap, deductions, tips, employeeCounter})); }
+    function loadFromLocal(){
+      const raw=localStorage.getItem('salary_v23_meal'); if(!raw) return;
+      try{ const d=JSON.parse(raw)||{}; employees=d.employees||{}; workMap=d.workMap||{}; deductions=d.deductions||{}; tips=d.tips||{}; employeeCounter=d.employeeCounter||Object.keys(employees).length; }catch(e){}
+    }
+
+    // Google Sheets (ต้องมีสคริปต์รองรับ)
+    function getScriptUrl(){ return (byId('appsScriptUrl').value||'').trim(); }
+    async function loadFromGoogleSheets(){
+      const url=getScriptUrl(); if(!url){ showBanner('กรุณาใส่ URL ของ Apps Script ก่อน', false); return; }
+      try{
+        showBanner('กำลังดึงข้อมูลจาก Google Sheets...', true, 10000);
+        const listRes=await fetch(`${url}?listEmployees=true`); const list=await listRes.json(); if(list.error) throw new Error(list.error);
+        employees={}; workMap={}; deductions={}; tips={}; currentEmployee=null;
+        for(const emp of list.employees){
+          const res=await fetch(`${url}?empId=${encodeURIComponent(emp.empId)}`); const detail=await res.json(); if(detail.error) continue;
+          employees[emp.empId]={ name:detail.name, type:(detail.type==='monthly'?'monthly':'daily'), rate:Number(detail.rate||0), meal:Number(detail.meal||0), canPaidLeave:!!detail.canPaidLeave };
+          workMap[emp.empId]={};
+          (detail.workDays||[]).forEach(w=>{ const dt=new Date(w.date); if(!isNaN(dt)){ const k=`${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`; if(['work','paid','absent'].includes(w.status)) workMap[emp.empId][k]=w.status; else if(employees[emp.empId].type==='monthly') workMap[emp.empId][k]='work'; } });
+          deductions[emp.empId]=detail.deductions||[]; tips[emp.empId]=detail.tips||[];
+        }
+        refreshEmployeeSelect(); showSection(false); showBanner(`ดึงข้อมูลสำเร็จ (${Object.keys(employees).length} คน)`, true);
+      }catch(e){ console.error(e); showBanner('โหลดข้อมูลจาก Google Sheets ไม่สำเร็จ', false); }
+    }
+    async function saveToGoogleSheets(){
+      const url=getScriptUrl(); if(!url){ showBanner('กรุณาใส่ URL ของ Apps Script ก่อน', false); return; }
+      try{
+        showBanner('กำลังบันทึกขึ้น Google Sheets...', true, 10000);
+        const empArray=Object.keys(employees).map(id=>({empId:id, ...employees[id]}));
+        const y=currentDate.getFullYear(), m=currentDate.getMonth(), days=new Date(y,m+1,0).getDate();
+        const workdays=[];
+        Object.keys(workMap).forEach(empId=>{
+          for(let d=1; d<=days; d++){
+            const st=(workMap[empId]||{})[`${y}-${m}-${d}`]; if(!st) continue;
+            const date=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            workdays.push({empId,date,status:st});
+          }
+        });
+        const res1=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveEmployeesV2',employees:empArray})});
+        const r1=JSON.parse((await res1.text())||'{}'); if(r1.error) throw new Error(r1.error);
+        const res2=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveWorkdaysV2',workdays})});
+        const r2=JSON.parse((await res2.text())||'{}'); if(r2.error) throw new Error(r2.error);
+        const res3=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'saveAdjustmentsV2',deductions,tips})});
+        const r3=JSON.parse((await res3.text())||'{}'); if(r3.error) throw new Error(r3.error);
+        showBanner('บันทึกข้อมูลขึ้น Google Sheets สำเร็จ', true);
+      }catch(e){ console.error(e); showBanner('บันทึกข้อมูลขึ้น Google Sheets ไม่สำเร็จ', false); }
+    }
+
+    // ส่งออกรายงาน (ไฟล์ข้อความ .txt)
+    function exportIndividualReportTXT(){
+      if(!ensureEmployeeSelected()) return;
+      const id=currentEmployee; const txt = buildEmployeeReportTXT(id);
+      const y=currentDate.getFullYear(), m=currentDate.getMonth();
+      downloadText(`รายงาน_${employees[id].name}_${thaiMonths[m]}_${y+543}.txt`, txt);
+      showBanner('ส่งออกรายงานรายคนแล้ว', true);
+    }
+
+    function buildAndShowAllTable(){
+      const y=currentDate.getFullYear(), m=currentDate.getMonth();
+      byId('allReportTitle').textContent=`รายงานรวม - ${thaiMonths[m]} ${y+543}`;
+      const body=byId('allReportBody'); body.innerHTML='';
+      Object.keys(employees).forEach(id=>{
+        const emp=employees[id]; const map=workMap[id]||{}; const days=new Date(y,m+1,0).getDate();
+        let fw=0, sw=0, fa=0, sa=0, fwWorkOnly=0, swWorkOnly=0;
+        const wL=[], pL=[], aL=[];
+        for(let d=1; d<=days; d++){
+          const st=map[`${y}-${m}-${d}`]; const fh=d<=15;
+          if(emp.type==='daily'){
+            if(st==='work'){ if(fh) fw++; else sw++; wL.push(d); }
+          }else{
+            if(st==='work'||st==='paid'){ if(fh) fw++; else sw++; }
+            if(st==='work'){ if(fh) fwWorkOnly++; else swWorkOnly++; }
+            if(st==='paid') pL.push(d);
+            if(st==='absent'){ if(fh) fa++; else sa++; aL.push(d); }
+          }
+        }
+        let fhM=0, shM=0, total=0, mealTotal=0;
+        if(emp.type==='daily'){
+          const meal=Number(emp.meal??50);
+          fhM=fw*emp.rate + fw*meal; shM=sw*emp.rate + sw*meal; mealTotal=(fw+sw)*meal; total=fhM+shM;
+        }else{
+          const perDay=emp.rate/30;
+          const baseFH=perDay*(15-fa), baseSH=perDay*(15-sa);
+          const mealFH=(emp.meal??0)*fwWorkOnly, mealSH=(emp.meal??0)*swWorkOnly;
+          fhM=baseFH+mealFH; shM=baseSH+mealSH; mealTotal=mealFH+mealSH; total=fhM+shM;
+        }
+        const ded=sumAdj(deductions[id], y, m); const tip=sumAdj(tips[id], y, m);
+
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+          <td class=\"border px-3 py-2\">${emp.name}</td>
+          <td class=\"border px-3 py-2\">${emp.type==='daily'?'รายวัน':'รายเดือน'}</td>
+          <td class=\"border px-3 py-2\">${emp.type==='daily'?(wL.join(', ')||'-'):(fw+sw)+' วัน'}</td>
+          <td class=\"border px-3 py-2\">${emp.type==='monthly'?(pL.join(', ')||'-'):'-'}</td>
+          <td class=\"border px-3 py-2\">${aL.join(', ')||'-'}</td>
+          <td class=\"border px-3 py-2 text-right\">${num(Math.round(fhM))}</td>
+          <td class=\"border px-3 py-2 text-right\">${num(Math.round(shM))}</td>
+          <td class=\"border px-3 py-2 text-right\">${emp.type==='daily'?num(mealTotal):num(mealTotal)}</td>
+          <td class=\"border px-3 py-2 text-right\">${num(ded)}</td>
+          <td class=\"border px-3 py-2 text-right\">${num(tip)}</td>
+          <td class=\"border px-3 py-2 text-right\">${num(Math.round(total))} / ${num(Math.round(total - ded + tip))}</td>`;
+        body.appendChild(tr);
+      });
+      showModal('allReportModal');
+    }
+
+    function exportAllReportTXT(){
+      const y=currentDate.getFullYear(), m=currentDate.getMonth();
+      let parts=[`รายงานสรุปรวม - ${thaiMonths[m]} ${y+543}`, ''];
+      Object.keys(employees).forEach(id=>{ parts.push(buildEmployeeReportTXT(id) + `\nสุทธิ: ` + num(Math.round(calcTotalFor(id) - sumAdj(deductions[id], y, m) + sumAdj(tips[id], y, m))) + ' บาท'); parts.push(''); });
+      const all=parts.join('\n');
+      downloadText(`รายงานรวม_${thaiMonths[m]}_${y+543}.txt`, all);
+      showBanner('ส่งออกรายงานทุกคนแล้ว', true);
+    }
+
+    function calcTotalFor(id){
+      // คำนวน total ตามสูตรเดียวกับ summary/export
+      const emp=employees[id]; const y=currentDate.getFullYear(), m=currentDate.getMonth();
+      const days=new Date(y,m+1,0).getDate(); const map=workMap[id]||{};
+      let fw=0, sw=0, fa=0, sa=0, fwWorkOnly=0, swWorkOnly=0;
+      for(let d=1; d<=days; d++){
+        const st=map[`${y}-${m}-${d}`]; const fh=d<=15;
+        if(emp.type==='daily'){
+          if(st==='work'){ if(fh) fw++; else sw++; }
+        }else{
+          if(st==='work'||st==='paid'){ if(fh) fw++; else sw++; }
+          if(st==='work'){ if(fh) fwWorkOnly++; else swWorkOnly++; }
+          if(st==='absent'){ if(fh) fa++; else sa++; }
+        }
+      }
+      if(emp.type==='daily'){
+        const meal=Number(emp.meal??50);
+        const fhMoney = fw*emp.rate + fw*meal;
+        const shMoney = sw*emp.rate + sw*meal;
+        return fhMoney+shMoney;
+      }else{
+        const perDay=emp.rate/30;
+        const baseFH=perDay*(15-fa), baseSH=perDay*(15-sa);
+        const mealFH=(emp.meal??0)*fwWorkOnly, mealSH=(emp.meal??0)*swWorkOnly;
+        return (baseFH+mealFH) + (baseSH+mealSH);
+      }
+    }
+
+    function buildEmployeeReportTXT(id){
+      const emp=employees[id]; const y=currentDate.getFullYear(), m=currentDate.getMonth();
+      const days=new Date(y,m+1,0).getDate(), map=workMap[id]||{};
+      let fw=0, sw=0, fa=0, sa=0, fwWorkOnly=0, swWorkOnly=0;
+      const workDaysList=[], paidDaysList=[], absentDaysList=[];
+      for(let d=1; d<=days; d++){
+        const st=map[`${y}-${m}-${d}`]; const fh=d<=15;
+        if(emp.type==='daily'){
+          if(st==='work'){ if(fh) fw++; else sw++; workDaysList.push(d); }
+        }else{
+          if(st==='work'||st==='paid'){ if(fh) fw++; else sw++; }
+          if(st==='work'){ if(fh) fwWorkOnly++; else swWorkOnly++; }
+          if(st==='paid') paidDaysList.push(d);
+          if(st==='absent'){ if(fh) fa++; else sa++; absentDaysList.push(d); }
+        }
+      }
+      let fhMoney=0, shMoney=0, total=0, mealTotal=0;
+      if(emp.type==='daily'){
+        const meal=Number(emp.meal??50);
+        fhMoney=fw*emp.rate + fw*meal; shMoney=sw*emp.rate + sw*meal; mealTotal=(fw+sw)*meal;
+        total=fhMoney+shMoney;
+      }else{
+        const perDay=emp.rate/30;
+        const baseFH=perDay*(15-fa), baseSH=perDay*(15-sa);
+        const mealFH=(emp.meal??0)*fwWorkOnly, mealSH=(emp.meal??0)*swWorkOnly;
+        fhMoney=baseFH+mealFH; shMoney=baseSH+mealSH; mealTotal=mealFH+mealSH;
+        total=fhMoney+shMoney;
+      }
+      const dedSum=sumAdj(deductions[id], y, m);
+      const tipSum=sumAdj(tips[id], y, m);
+
+      const lines=[
+        `ชื่อ: ${emp.name}`,
+        `ประเภท: ${emp.type==='daily'?'รายวัน':'รายเดือน'}`,
+        `เดือน: ${thaiMonths[m]} ${y+543}`,
+        emp.type==='daily' ? `มาทำงานวันไหน: ${workDaysList.length?workDaysList.join(', '):'-'}` : `มาทำงาน(วัน): ${fw+sw} วัน`,
+        `หยุดได้: ${emp.type==='monthly'?(paidDaysList.length?paidDaysList.join(', '):'-'):'-'}`,
+        `ขาด: ${absentDaysList.length?absentDaysList.join(', '):'-'}`,
+        emp.type==='daily' ? `ค่าข้าว (รวม): ${num(mealTotal)} บาท` : `ค่าข้าว (รวมเฉพาะวันที่ทำงาน): ${num(mealTotal)} บาท`,
+        `ครึ่งแรก (1-15): ${num(Math.round(fhMoney))} บาท`,
+        `ครึ่งหลัง (16-สิ้นเดือน): ${num(Math.round(shMoney))} บาท`,
+        `รวมทั้งเดือน: ${num(Math.round(total))} บาท`,
+        `หักเงินรวม: ${num(dedSum)} บาท`,
+        `ทิปรวม: ${num(tipSum)} บาท`,
+        `สุทธิ: ${num(Math.round(total - dedSum + tipSum))} บาท`
+      ];
+      return lines.join('\n');
+    }
+
+    // ดาวน์โหลดไฟล์ข้อความ
+    function downloadText(filename, content){
+      const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
+      const url=URL.createObjectURL(blob); const a=document.createElement('a');
+      a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    }
+  </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96fa6cb9014e4b59',t:'MTc1NTI3OTA3Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
