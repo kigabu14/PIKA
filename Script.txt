@@ -1,0 +1,249 @@
+// Google Apps Script for Salary V23+
+// Sheets: Employees, Workdays, Deductions, Tips
+// Web App entrypoints:
+//   GET  ?listEmployees=true
+//   GET  ?empId=emp1
+//   POST { action: 'saveEmployeesV2', employees: [...] }
+//   POST { action: 'saveWorkdaysV2', workdays: [...] }
+//   POST { action: 'saveAdjustmentsV2', deductions: {...}, tips: {...} }
+
+const SHEET_EMP = 'Employees';
+const SHEET_WORK = 'Workdays';
+const SHEET_DED  = 'Deductions';
+const SHEET_TIP  = 'Tips';
+
+function doGet(e) {
+  try {
+    const params = e.parameter || {};
+    if (params.listEmployees) {
+      const employees = getAllEmployees().map(r => ({ empId: r.empId, name: r.name || '' }));
+      return json({ employees });
+    }
+    if (params.empId) {
+      const empId = String(params.empId);
+      const emp = getEmployeeById(empId);
+      if (!emp) return json({ error: 'not_found' }, 404);
+
+      const workDays = getWorkdaysByEmp(empId);               // [{date,status}]
+      const deductions = getAdjustmentsByEmp(SHEET_DED, empId); // [{date,amount,note}]
+      const tips = getAdjustmentsByEmp(SHEET_TIP, empId);       // [{date,amount,note}]
+      return json({
+        empId,
+        name: emp.name,
+        type: emp.type,
+        rate: emp.rate,
+        meal: emp.meal,
+        canPaidLeave: emp.canPaidLeave,
+        workDays,
+        deductions,
+        tips
+      });
+    }
+    return json({ ok: true, hint: 'Use ?listEmployees=true or ?empId=xxx' });
+  } catch (err) {
+    return json({ error: String(err) }, 500);
+  }
+}
+
+function doPost(e) {
+  try {
+    const body = e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
+    const action = body.action;
+
+    if (action === 'saveEmployeesV2') {
+      // Upsert by empId
+      const employees = body.employees || [];
+      upsertEmployees(employees);
+      return json({ ok: true, count: employees.length });
+    }
+
+    if (action === 'saveWorkdaysV2') {
+      // workdays: [{empId, date: 'YYYY-MM-DD', status}]
+      const workdays = body.workdays || [];
+      upsertWorkdays(workdays); // upsert by (empId|date)
+      return json({ ok: true, count: workdays.length });
+    }
+
+    if (action === 'saveAdjustmentsV2') {
+      // deductions: { empId: [{date,amount,note}], ... }
+      // tips:       { empId: [{date,amount,note}], ... }
+      const deductions = body.deductions || {};
+      const tips = body.tips || {};
+      upsertAdjustments(SHEET_DED, deductions); // upsert by (empId|date|note)
+      upsertAdjustments(SHEET_TIP, tips);       // upsert by (empId|date|note)
+      return json({ ok: true });
+    }
+
+    return json({ error: 'unknown_action' }, 400);
+  } catch (err) {
+    return json({ error: String(err) }, 500);
+  }
+}
+
+/* ===================== Employees ===================== */
+function getAllEmployees() {
+  const sh = getSheet_(SHEET_EMP);
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const head = values[0];
+  const rows = values.slice(1);
+  const idx = indexMap_(head, ['empId', 'name', 'type', 'rate', 'meal', 'canPaidLeave']);
+  return rows.filter(r => r[idx.empId]).map(r => ({
+    empId: String(r[idx.empId]),
+    name: String(r[idx.name] || ''),
+    type: String(r[idx.type] || 'daily'),
+    rate: Number(r[idx.rate] || 0),
+    meal: Number(r[idx.meal] || 0),
+    canPaidLeave: toBool_(r[idx.canPaidLeave])
+  }));
+}
+
+function getEmployeeById(empId) {
+  return getAllEmployees().find(e => e.empId === empId);
+}
+
+function upsertEmployees(arr) {
+  const sh = getSheet_(SHEET_EMP);
+  const head = ['empId','name','type','rate','meal','canPaidLeave'];
+  if (sh.getLastRow() === 0) sh.appendRow(head);
+  // Build map of current rows
+  const values = sh.getDataRange().getValues();
+  const map = {};
+  for (let i=1; i<values.length; i++) {
+    const empId = String(values[i][0] || '');
+    if (empId) map[empId] = i+1; // row index
+  }
+  arr.forEach(e => {
+    const row = [e.empId, e.name, e.type, Number(e.rate||0), Number(e.meal||0), !!e.canPaidLeave];
+    if (map[e.empId]) {
+      sh.getRange(map[e.empId], 1, 1, row.length).setValues([row]);
+    } else {
+      sh.appendRow(row);
+    }
+  });
+}
+
+/* ===================== Workdays ===================== */
+function getWorkdaysByEmp(empId) {
+  const sh = getSheet_(SHEET_WORK);
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const head = values[0];
+  const idx = indexMap_(head, ['empId','date','status']);
+  return values.slice(1).filter(r => String(r[idx.empId]) === empId).map(r => ({
+    date: toDateStr_(r[idx.date]),
+    status: String(r[idx.status] || '')
+  }));
+}
+
+function upsertWorkdays(items) {
+  if (!items.length) return;
+  const sh = getSheet_(SHEET_WORK);
+  const head = ['empId','date','status'];
+  if (sh.getLastRow() === 0) sh.appendRow(head);
+
+  // Read all, filter out keys that are in items, then append items
+  const all = sh.getDataRange().getValues();
+  let kept = [head];
+  const keysIncoming = {};
+  items.forEach(it => {
+    const k = it.empId + '|' + String(it.date);
+    keysIncoming[k] = true;
+  });
+  if (all.length > 1) {
+    const idx = indexMap_(all[0], head);
+    for (let i=1; i<all.length; i++) {
+      const k = String(all[i][idx.empId]) + '|' + toDateStr_(all[i][idx.date]);
+      if (!keysIncoming[k]) kept.push(all[i]);
+    }
+  }
+  sh.clearContents();
+  sh.getRange(1,1,kept.length, head.length).setValues(kept);
+  // Append new
+  const rows = items.map(it => [it.empId, it.date, it.status]);
+  if (rows.length) sh.getRange(sh.getLastRow()+1,1,rows.length, head.length).setValues(rows);
+}
+
+/* ===================== Adjustments (Deductions/Tips) ===================== */
+function getAdjustmentsByEmp(sheetName, empId) {
+  const sh = getSheet_(sheetName);
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const head = values[0];
+  const idx = indexMap_(head, ['empId','date','amount','note']);
+  return values.slice(1).filter(r => String(r[idx.empId]) === empId).map(r => ({
+    date: toDateStr_(r[idx.date]),
+    amount: Number(r[idx.amount] || 0),
+    note: String(r[idx.note] || '')
+  }));
+}
+
+function upsertAdjustments(sheetName, objByEmp) {
+  const sh = getSheet_(sheetName);
+  const head = ['empId','date','amount','note'];
+  if (sh.getLastRow() === 0) sh.appendRow(head);
+
+  const items = [];
+  Object.keys(objByEmp || {}).forEach(empId => {
+    (objByEmp[empId] || []).forEach(it => {
+      items.push({ empId, date: String(it.date), amount: Number(it.amount||0), note: String(it.note||'') });
+    });
+  });
+  if (!items.length) return;
+
+  // Upsert by (empId|date|note)
+  const all = sh.getDataRange().getValues();
+  let kept = [head];
+  const keysIncoming = {};
+  items.forEach(it => { keysIncoming[it.empId + '|' + it.date + '|' + it.note] = true; });
+
+  if (all.length > 1) {
+    const idx = indexMap_(all[0], head);
+    for (let i=1; i<all.length; i++) {
+      const k = String(all[i][idx.empId]) + '|' + toDateStr_(all[i][idx.date]) + '|' + String(all[i][idx.note] || '');
+      if (!keysIncoming[k]) kept.push(all[i]);
+    }
+  }
+  sh.clearContents();
+  sh.getRange(1,1,kept.length, head.length).setValues(kept);
+  const rows = items.map(it => [it.empId, it.date, it.amount, it.note]);
+  if (rows.length) sh.getRange(sh.getLastRow()+1,1,rows.length, head.length).setValues(rows);
+}
+
+/* ===================== Helpers ===================== */
+function getSheet_(name) {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  return sh;
+}
+
+function indexMap_(head, fields) {
+  const map = {};
+  fields.forEach(f => map[f] = head.indexOf(f));
+  return map;
+}
+
+function toDateStr_(v) {
+  if (!v) return '';
+  if (Object.prototype.toString.call(v) === '[object Date]') {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  // already string
+  return String(v);
+}
+
+function toBool_(v) {
+  if (typeof v === 'boolean') return v;
+  const s = String(v).toLowerCase();
+  return s === 'true' || s === '1' || s === 'yes' || s === 'y';
+}
+
+function json(obj, code) {
+  const out = ContentService.createTextOutput(JSON.stringify(obj));
+  out.setMimeType(ContentService.MimeType.JSON);
+  if (code) {
+    // Apps Script ไม่มี setStatusCode กับ Web App โดยตรง
+    // ฝั่งไคลเอนต์ควรเช็ค field error แทน
+  }
+  return out;
+}
