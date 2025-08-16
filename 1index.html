@@ -80,7 +80,7 @@
           <h3 class="text-lg font-bold">เชื่อมต่อ Google Sheets</h3>
         </div>
         <label class="block text-sm font-semibold mb-2">ลิงก์ Google Apps Script (Web App URL)</label>
-        <input id="appsScriptUrl" type="text" value="https://script.google.com/macros/s/AKfycbyq4O159UN9gs2Fg16RcvD2rJmogb_K7sz6qZO2vhruNNOlqEyP0YrQYinyuu5KCZ2nzA/exec" placeholder="https://script.google.com/macros/s/.../exec" class="w-full p-3 rounded-xl border-2 mb-3"/>
+        <input type="text" id="appsScriptUrl" value="https://script.google.com/macros/s/AKfycbx007JciE0VKzKRR2W1Ho_vDkvHoW_JNSGQHAiUNRe7UMJtjO5_zG6l7W0FXINAa_H9MA/exec" placeholder="" class="w-full p-3 rounded-xl border-2 mb-3"/>
         <div class="flex flex-col sm:flex-row gap-3">
           <button id="loadFromSheets" class="neon bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-5 py-3 rounded-xl font-bold">📥 ดึงข้อมูลจาก Sheets</button>
           <button id="saveToSheets" class="neon bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-3 rounded-xl font-bold">📤 บันทึกขึ้น Sheets</button>
@@ -299,21 +299,12 @@
       <div class="overflow-auto flex-1 border rounded-xl bg-white">
         <table class="w-full text-sm">
           <thead class="bg-indigo-600 text-white">
-            <tr>
-              <th class="px-3 py-2 text-left">ชื่อ</th>
-              <th class="px-3 py-2 text-left">ประเภท</th>
-              <th class="px-3 py-2 text-left">มาทำงาน</th>
-              <th class="px-3 py-2 text-left">หยุดได้</th>
-              <th class="px-3 py-2 text-left">ขาด</th>
-              <th class="px-3 py-2 text-right">ครึ่งแรก</th>
-              <th class="px-3 py-2 text-right">ครึ่งหลัง</th>
-              <th class="px-3 py-2 text-right">ค่าข้าว</th>
-              <th class="px-3 py-2 text-right">หักเงิน</th>
-              <th class="px-3 py-2 text-right">เงินเพิ่ม</th>
-              <th class="px-3 py-2 text-right">รวม/สุทธิ</th>
-            </tr>
           </thead>
+          <tbody id="allReportHeader">
+            <tr>
+           
           <tbody id="allReportBody"></tbody>
+            </tr>
         </table>
       </div>
       <div class="text-xs text-gray-600 mt-3">ตรวจสอบข้อมูลบนตารางก่อนกดส่งออกเป็นไฟล์ข้อความ</div>
@@ -331,9 +322,21 @@
     const thaiMonths=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
     document.addEventListener('DOMContentLoaded', ()=>{
-      loadFromLocal();
+      //loadFromLocal();
       bindUI();
       refreshEmployeeSelect();
+      const url=getScriptUrl();
+      if(url){
+        console.log('พบ Google Apps Script URL - เริ่ม fetch ข้อมูลอัตโนมัติ...');
+        showBanner('กำลังดึงข้อมูลจาก Google Sheets...', true);
+        setTimeout(() => {
+          loadFromGoogleSheets();
+        }, 50);
+      }else {
+        console.log('ไม่พบ Google Apps Script URL - เริ่มต้นด้วยข้อมูลว่าง');
+        showBanner('ไม่สามารถดึงข้อมูลจาก Google Sheets...', true);
+      }
+     
     });
 
     // Bind UI
@@ -440,9 +443,10 @@
         if(!workMap[id]) workMap[id]={}; if(!deductions[id]) deductions[id]=[]; if(!tips[id]) tips[id]=[];
         if(type==='monthly') ensureMonthlyDefaults(id);
       }
-      saveToLocal(); refreshEmployeeSelect();
+      saveToGoogleSheets(); refreshEmployeeSelect();
       if(currentEmployee){ showEmployeeInfo(currentEmployee); renderCalendar(); renderSummary(); }
       hideModal('employeeModal');
+      saveToGoogleSheets();
     }
     function populateEditSelect(){
       const sel=byId('editEmployeeSelect'); sel.innerHTML='<option value="">เลือกพนักงาน</option>';
@@ -457,7 +461,7 @@
       if(confirm('ยืนยันการลบพนักงานคนนี้?')){
         delete employees[id]; delete workMap[id]; delete deductions[id]; delete tips[id];
         if(currentEmployee===id){ currentEmployee=null; byId('employeeSelect').value=''; showSection(false); }
-        saveToLocal(); refreshEmployeeSelect(); hideModal('editEmployeeModal'); showBanner('ลบพนักงานเรียบร้อย', true);
+          refreshEmployeeSelect(); hideModal('editEmployeeModal'); saveToGoogleSheets(); showBanner('ลบพนักงานเรียบร้อย', true);
       }
     }
     function refreshEmployeeSelect(){
@@ -515,7 +519,7 @@
           cell.addEventListener('click', ()=>{
             if(!calendarUnlocked){ showBanner('โปรด “ปลดล็อกการแก้ไขปฏิทิน” ก่อน', false, 1800); return; }
             toggleStatus(emp, key, m);
-            renderCalendar(); renderSummary(); saveToLocal();
+            renderCalendar(); renderSummary();  saveToGoogleSheets();
           });
         }
         grid.appendChild(cell);
@@ -553,6 +557,7 @@
         else next='work';
       }
       workMap[currentEmployee][key]=next;
+      saveToGoogleSheets();
     }
     function countStatusInMonth(empId,year,month,status){
       let c=0, days=new Date(year,month+1,0).getDate(), map=workMap[empId]||{};
@@ -628,14 +633,14 @@
       const date=byId('deductDate').value, amount=Number(byId('deductAmount').value||0), note=byId('deductNote').value||'';
       if(!deductions[currentEmployee]) deductions[currentEmployee]=[];
       deductions[currentEmployee].push({date,amount,note});
-      hideModal('deductionModal'); saveToLocal(); renderSummary(); showBanner('บันทึกการหักเงินเรียบร้อย', true); e.target.reset();
+      hideModal('deductionModal');  saveToGoogleSheets(); renderSummary(); showBanner('บันทึกการหักเงินเรียบร้อย', true); e.target.reset();
     }
     function saveTip(e){
       e.preventDefault(); if(!ensureEmployeeSelected()) return;
       const date=byId('tipDate').value, amount=Number(byId('tipAmount').value||0), note=byId('tipNote').value||'';
       if(!tips[currentEmployee]) tips[currentEmployee]=[];
       tips[currentEmployee].push({date,amount,note});
-      hideModal('tipModal'); saveToLocal(); renderSummary(); showBanner('บันทึกทิปเรียบร้อย', true); e.target.reset();
+      hideModal('tipModal');  saveToGoogleSheets(); renderSummary(); showBanner('บันทึกทิปเรียบร้อย', true); e.target.reset();
     }
 
     // Local storage
@@ -646,9 +651,14 @@
     }
 
     // Google Sheets (ต้องมีสคริปต์รองรับ)
-    function getScriptUrl(){ return (byId('appsScriptUrl').value||'').trim(); }
+    function getScriptUrl(){ return byId('appsScriptUrl').value.trim(); }
+
     async function loadFromGoogleSheets(){
-      const url=getScriptUrl(); if(!url){ showBanner('กรุณาใส่ URL ของ Apps Script ก่อน', false); return; }
+      const url=getScriptUrl(); 
+      if(!url){
+         showBanner('กรุณาใส่ URL ของ Apps Script ก่อน', false); 
+         return; 
+      }
       try{
         showBanner('กำลังดึงข้อมูลจาก Google Sheets...', true, 10000);
         const listRes=await fetch(`${url}?listEmployees=true`); const list=await listRes.json(); if(list.error) throw new Error(list.error);
@@ -664,7 +674,10 @@
       }catch(e){ console.error(e); showBanner('โหลดข้อมูลจาก Google Sheets ไม่สำเร็จ', false); }
     }
     async function saveToGoogleSheets(){
-      const url=getScriptUrl(); if(!url){ showBanner('กรุณาใส่ URL ของ Apps Script ก่อน', false); return; }
+      const url=getScriptUrl(); 
+      if(!url){ 
+        showBanner('กรุณาใส่ URL ของ Apps Script ก่อน', false); 
+        return; }
       try{
         showBanner('กำลังบันทึกขึ้น Google Sheets...', true, 10000);
         const empArray=Object.keys(employees).map(id=>({empId:id, ...employees[id]}));
@@ -695,56 +708,108 @@
       downloadText(`รายงาน_${employees[id].name}_${thaiMonths[m]}_${y+543}.txt`, txt);
       showBanner('ส่งออกรายงานรายคนแล้ว', true);
     }
+function buildAndShowAllTable() {
+  const y = currentDate.getFullYear(), m = currentDate.getMonth();
+  const body = byId('allReportBody'); 
+  body.innerHTML = '';
 
-    function buildAndShowAllTable(){
-      const y=currentDate.getFullYear(), m=currentDate.getMonth();
-      byId('allReportTitle').textContent=`รายงานรวม - ${thaiMonths[m]} ${y+543}`;
-      const body=byId('allReportBody'); body.innerHTML='';
-      Object.keys(employees).forEach(id=>{
-        const emp=employees[id]; const map=workMap[id]||{}; const days=new Date(y,m+1,0).getDate();
-        let fw=0, sw=0, fa=0, sa=0, fwWorkOnly=0, swWorkOnly=0;
-        const wL=[], pL=[], aL=[];
-        for(let d=1; d<=days; d++){
-          const st=map[`${y}-${m}-${d}`]; const fh=d<=15;
-          if(emp.type==='daily'){
-            if(st==='work'){ if(fh) fw++; else sw++; wL.push(d); }
-          }else{
-            if(st==='work'||st==='paid'){ if(fh) fw++; else sw++; }
-            if(st==='work'){ if(fh) fwWorkOnly++; else swWorkOnly++; }
-            if(st==='paid') pL.push(d);
-            if(st==='absent'){ if(fh) fa++; else sa++; aL.push(d); }
-          }
-        }
-        let fhM=0, shM=0, total=0, mealTotal=0;
-        if(emp.type==='daily'){
-          const meal=Number(emp.meal??50);
-          fhM=fw*emp.rate + fw*meal; shM=sw*emp.rate + sw*meal; mealTotal=(fw+sw)*meal; total=fhM+shM;
-        }else{
-          const perDay=emp.rate/30;
-          const baseFH=perDay*(15-fa), baseSH=perDay*(15-sa);
-          const mealFH=(emp.meal??0)*fwWorkOnly, mealSH=(emp.meal??0)*swWorkOnly;
-          fhM=baseFH+mealFH; shM=baseSH+mealSH; mealTotal=mealFH+mealSH; total=fhM+shM;
-        }
-        const ded=sumAdj(deductions[id], y, m); const tip=sumAdj(tips[id], y, m);
+  let totalFirstHalf = 0, totalSecondHalf = 0, totalMeal = 0, totalDed = 0, totalTip = 0, totalNet = 0, totalDays = 0;
+  const rows = [];
 
-        const tr=document.createElement('tr');
-        tr.innerHTML=`
-          <td class=\"border px-3 py-2\">${emp.name}</td>
-          <td class=\"border px-3 py-2\">${emp.type==='daily'?'รายวัน':'รายเดือน'}</td>
-          <td class=\"border px-3 py-2\">${emp.type==='daily'?(wL.join(', ')||'-'):(fw+sw)+' วัน'}</td>
-          <td class=\"border px-3 py-2\">${emp.type==='monthly'?(pL.join(', ')||'-'):'-'}</td>
-          <td class=\"border px-3 py-2\">${aL.join(', ')||'-'}</td>
-          <td class=\"border px-3 py-2 text-right\">${num(Math.round(fhM))}</td>
-          <td class=\"border px-3 py-2 text-right\">${num(Math.round(shM))}</td>
-          <td class=\"border px-3 py-2 text-right\">${emp.type==='daily'?num(mealTotal):num(mealTotal)}</td>
-          <td class=\"border px-3 py-2 text-right\">${num(ded)}</td>
-          <td class=\"border px-3 py-2 text-right\">${num(tip)}</td>
-          <td class=\"border px-3 py-2 text-right\">${num(Math.round(total))} / ${num(Math.round(total - ded + tip))}</td>`;
-        body.appendChild(tr);
-      });
-      showModal('allReportModal');
+  Object.keys(employees).forEach(id => {
+    const emp = employees[id]; 
+    const map = workMap[id] || {}; 
+    const days = new Date(y,m+1,0).getDate();
+    let fw=0, sw=0, fa=0, sa=0, fwWorkOnly=0, swWorkOnly=0;
+
+    for(let d=1; d<=days; d++){
+      const st=map[`${y}-${m}-${d}`]; const fh=d<=15;
+      if(emp.type==='daily'){
+        if(st==='work'){ if(fh) fw++; else sw++; }
+      } else {
+        if(st==='work'||st==='paid'){ if(fh) fw++; else sw++; }
+        if(st==='work'){ if(fh) fwWorkOnly++; else swWorkOnly++; }
+        if(st==='absent'){ if(fh) fa++; else sa++; }
+      }
     }
 
+    let fhM=0, shM=0, total=0, mealTotal=0;
+    if(emp.type==='daily'){
+      const meal=Number(emp.meal??50);
+      fhM=fw*emp.rate + fw*meal; 
+      shM=sw*emp.rate + sw*meal; 
+      mealTotal=(fw+sw)*meal; 
+      total=fhM+shM;
+    } else {
+      const perDay=emp.rate/30;
+      const baseFH=perDay*(15-fa), baseSH=perDay*(15-sa);
+      const mealFH=(emp.meal??0)*fwWorkOnly, mealSH=(emp.meal??0)*swWorkOnly;
+      fhM=baseFH+mealFH; 
+      shM=baseSH+mealSH; 
+      mealTotal=mealFH+mealSH; 
+      total=fhM+shM;
+    }
+
+    const ded=sumAdj(deductions[id], y, m); 
+    const tip=sumAdj(tips[id], y, m);
+    const net = total - ded + tip;
+
+    totalFirstHalf += fhM;
+    totalSecondHalf += shM;
+    totalMeal += mealTotal;
+    totalDed += ded;
+    totalTip += tip;
+    totalNet += net;
+    totalDays += (fw+sw);
+
+    rows.push(`
+      <tr class="hover:bg-yellow-50 transition-colors">
+        <td class="border border-gray-300 px-3 py-3 font-semibold text-gray-800 text-sm">${emp.name}</td>
+        <td class="border border-gray-300 px-3 py-3 text-gray-700 text-sm">${emp.type==='daily'?'รายวัน':'รายเดือน'}</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-blue-600 text-sm">${num(emp.rate)}</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-blue-600 text-sm">${num(mealTotal)}</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-orange-600 text-sm">${fw} วัน</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-orange-600 text-sm">${num(Math.round(fhM))}</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-teal-600 text-sm">${sw} วัน</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-teal-600 text-sm">${num(Math.round(shM))}</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-orange-600 text-sm">-${num(ded)}</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-orange-600 text-sm">+${num(tip)}</td>
+        <td class="border border-gray-300 px-3 py-3 text-center font-bold text-purple-600 text-sm">${num(Math.round(net))}</td>
+      </tr>
+    `);
+  });
+
+  // สร้างหัวตาราง
+  body.innerHTML = `
+    <tr class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+      <th class="border border-gray-300 px-3 py-3 text-left font-bold text-sm">👤 ชื่อ</th>
+      <th class="border border-gray-300 px-3 py-3 text-left font-bold text-sm">💼 ตำแหน่ง</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">💵 ค่าแรง/วัน</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">📊 ค่าข้าว</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">📊 วันครึ่งแรก</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">💰 เงินครึ่งแรก</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">📊 วันครึ่งหลัง</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">💎 เงินครึ่งหลัง</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">📊 หักเงิน</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">💎 เงินพิเศษ</th>
+      <th class="border border-gray-300 px-3 py-3 text-center font-bold text-sm">🏆 สุทธิ</th>
+    </tr>
+    ${rows.join('')}
+    <tr class="bg-gradient-to-r from-yellow-400 to-orange-400 text-white font-bold">
+      <td colspan="3" class="border border-gray-300 px-3 py-4 text-center text-lg">🎯 รวมทั้งหมด</td>
+      <td class="border border-gray-300 px-3 py-4 text-center text-lg">-</td>
+      <td class="border border-gray-300 px-3 py-4 text-center text-lg">-</td>
+      <td class="border border-gray-300 px-3 py-4 text-center text-lg">${num(Math.round(totalFirstHalf))}</td>
+      <td class="border border-gray-300 px-3 py-4 text-center text-lg">-</td>
+      <td class="border border-gray-300 px-3 py-4 text-center text-lg">${num(Math.round(totalSecondHalf))}</td>
+      <td class="border border-gray-300 px-3 py-4 text-center text-lg">${num(Math.round(totalDed))}</td>
+      <td class="border border-gray-300 px-3 py-4 text-center text-lg">${num(Math.round(totalTip))}</td>
+      <td class="border border-gray-300 px-3 py-4 text-center text-lg">${num(Math.round(totalNet))}</td>
+    </tr>
+  `;
+
+  showModal('allReportModal');
+}
     function exportAllReportTXT(){
       const y=currentDate.getFullYear(), m=currentDate.getMonth();
       let parts=[`รายงานสรุปรวม - ${thaiMonths[m]} ${y+543}`, ''];
@@ -782,61 +847,97 @@
       }
     }
 
-    function buildEmployeeReportTXT(id){
-      const emp=employees[id]; const y=currentDate.getFullYear(), m=currentDate.getMonth();
-      const days=new Date(y,m+1,0).getDate(), map=workMap[id]||{};
-      let fw=0, sw=0, fa=0, sa=0, fwWorkOnly=0, swWorkOnly=0;
-      const workDaysList=[], paidDaysList=[], absentDaysList=[];
-      for(let d=1; d<=days; d++){
-        const st=map[`${y}-${m}-${d}`]; const fh=d<=15;
-        if(emp.type==='daily'){
-          if(st==='work'){ if(fh) fw++; else sw++; workDaysList.push(d); }
-        }else{
-          if(st==='work'||st==='paid'){ if(fh) fw++; else sw++; }
-          if(st==='work'){ if(fh) fwWorkOnly++; else swWorkOnly++; }
-          if(st==='paid') paidDaysList.push(d);
-          if(st==='absent'){ if(fh) fa++; else sa++; absentDaysList.push(d); }
-        }
-      }
-      let fhMoney=0, shMoney=0, total=0, mealTotal=0;
-      if(emp.type==='daily'){
-        const meal=Number(emp.meal??50);
-        fhMoney=fw*emp.rate + fw*meal; shMoney=sw*emp.rate + sw*meal; mealTotal=(fw+sw)*meal;
-        total=fhMoney+shMoney;
-      }else{
-        const perDay=emp.rate/30;
-        const baseFH=perDay*(15-fa), baseSH=perDay*(15-sa);
-        const mealFH=(emp.meal??0)*fwWorkOnly, mealSH=(emp.meal??0)*swWorkOnly;
-        fhMoney=baseFH+mealFH; shMoney=baseSH+mealSH; mealTotal=mealFH+mealSH;
-        total=fhMoney+shMoney;
-      }
-      const dedSum=sumAdj(deductions[id], y, m);
-      const tipSum=sumAdj(tips[id], y, m);
-
-      const lines=[
-        `ชื่อ: ${emp.name}`,
-        `ประเภท: ${emp.type==='daily'?'รายวัน':'รายเดือน'}`,
-        `เดือน: ${thaiMonths[m]} ${y+543}`,
-        emp.type==='daily' ? `มาทำงานวันไหน: ${workDaysList.length?workDaysList.join(', '):'-'}` : `มาทำงาน(วัน): ${fw+sw} วัน`,
-        `หยุดได้: ${emp.type==='monthly'?(paidDaysList.length?paidDaysList.join(', '):'-'):'-'}`,
-        `ขาด: ${absentDaysList.length?absentDaysList.join(', '):'-'}`,
-        emp.type==='daily' ? `ค่าข้าว (รวม): ${num(mealTotal)} บาท` : `ค่าข้าว (รวมเฉพาะวันที่ทำงาน): ${num(mealTotal)} บาท`,
-        `ครึ่งแรก (1-15): ${num(Math.round(fhMoney))} บาท`,
-        `ครึ่งหลัง (16-สิ้นเดือน): ${num(Math.round(shMoney))} บาท`,
-        `รวมทั้งเดือน: ${num(Math.round(total))} บาท`,
-        `หักเงินรวม: ${num(dedSum)} บาท`,
-        `ทิปรวม: ${num(tipSum)} บาท`,
-        `สุทธิ: ${num(Math.round(total - dedSum + tipSum))} บาท`
-      ];
-      return lines.join('\n');
+   function buildEmployeeReportTXT(id){
+  const emp=employees[id]; 
+  const y=currentDate.getFullYear(), m=currentDate.getMonth();
+  const days=new Date(y,m+1,0).getDate(), map=workMap[id]||{};
+  let fw=0, sw=0, fa=0, sa=0, fwWorkOnly=0, swWorkOnly=0;
+  const workDaysList=[], paidDaysList=[], absentDaysList=[];
+  
+  for(let d=1; d<=days; d++){
+    const st=map[`${y}-${m}-${d}`]; const fh=d<=15;
+    if(emp.type==='daily'){
+      if(st==='work'){ if(fh) fw++; else sw++; workDaysList.push(d); }
+    }else{
+      if(st==='work'||st==='paid'){ if(fh) fw++; else sw++; }
+      if(st==='work'){ if(fh) fwWorkOnly++; else swWorkOnly++; }
+      if(st==='paid') paidDaysList.push(d);
+      if(st==='absent'){ if(fh) fa++; else sa++; absentDaysList.push(d); }
     }
+  }
 
-    // ดาวน์โหลดไฟล์ข้อความ
-    function downloadText(filename, content){
-      const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
-      const url=URL.createObjectURL(blob); const a=document.createElement('a');
-      a.href=url; a.download=filename; document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
+  let fhMoney=0, shMoney=0, total=0, mealTotal=0;
+  if(emp.type==='daily'){
+    const meal=Number(emp.meal??50);
+    fhMoney=fw*emp.rate + fw*meal; 
+    shMoney=sw*emp.rate + sw*meal; 
+    mealTotal=(fw+sw)*meal;
+    total=fhMoney+shMoney;
+  }else{
+    const perDay=emp.rate/30;
+    const baseFH=perDay*(15-fa), baseSH=perDay*(15-sa);
+    const mealFH=(emp.meal??0)*fwWorkOnly, mealSH=(emp.meal??0)*swWorkOnly;
+    fhMoney=baseFH+mealFH; 
+    shMoney=baseSH+mealSH; 
+    mealTotal=mealFH+mealSH;
+    total=fhMoney+shMoney;
+  }
+
+  const dedSum=sumAdj(deductions[id], y, m);
+  const tipSum=sumAdj(tips[id], y, m);
+
+  const lines=[
+    `ชื่อ: ${emp.name}`,
+    `ประเภท: ${emp.type==='daily'?'รายวัน':'รายเดือน'}`,
+    `เดือน: ${thaiMonths[m]} ${y+543}`,
+    emp.type==='daily' ? `มาทำงานวันไหน: ${workDaysList.length?workDaysList.join(', '):'-'}` : `มาทำงาน(วัน): ${fw+sw} วัน`,
+    `หยุดได้: ${emp.type==='monthly'?(paidDaysList.length?paidDaysList.join(', '):'-'):'-'}`,
+    `ขาด: ${absentDaysList.length?absentDaysList.join(', '):'-'}`,
+    emp.type==='daily' ? `ค่าข้าว (รวม): ${num(mealTotal)} บาท` : `ค่าข้าว (รวมเฉพาะวันที่ทำงาน): ${num(mealTotal)} บาท`,
+    `ครึ่งแรก (1-15): ${num(Math.round(fhMoney))} บาท`,
+    `ครึ่งหลัง (16-สิ้นเดือน): ${num(Math.round(shMoney))} บาท`,
+    `รวมทั้งเดือน: ${num(Math.round(total))} บาท`,
+    `หักเงินรวม: ${num(dedSum)} บาท`,
+    `ทิปรวม: ${num(tipSum)} บาท`,
+    `สุทธิ: ${num(Math.round(total - dedSum + tipSum))} บาท`
+  ];
+
+  // ✅ สร้าง popup preview
+  const txtContent = lines.join('\n');
+  const modal = document.createElement('div');
+  modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+  modal.innerHTML = `
+    <div class="bg-white rounded-xl shadow-xl w-96 p-6 relative">
+      <h3 class="text-lg font-bold mb-4">📄 พรีวิวรายงาน TXT</h3>
+      <pre class="bg-gray-100 rounded-lg p-3 text-sm overflow-auto max-h-80">${txtContent}</pre>
+      <div class="flex justify-end gap-2 mt-4">
+        <button id="cancelPreview" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">ปิด</button>
+        <button id="downloadTxt" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">บันทึกไฟล์ TXT</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // ปิด modal
+  modal.querySelector('#cancelPreview').onclick = () => modal.remove();
+
+  // ดาวน์โหลดไฟล์
+  modal.querySelector('#downloadTxt').onclick = () => {
+    const blob = new Blob([txtContent], { type: "text/plain;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Report_${emp.name}_${thaiMonths[m]}${y+543}.txt`;
+    link.click();
+    modal.remove();
+  };
+}
+
+// ดาวน์โหลดไฟล์ข้อความ
+function downloadText(filename, content){
+  const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
     }
   </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96fa6cb9014e4b59',t:'MTc1NTI3OTA3Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
