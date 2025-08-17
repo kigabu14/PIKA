@@ -939,6 +939,105 @@ function downloadText(filename, content){
   a.href=url; a.download=filename; document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
     }
+    
+    function showAllReportModal(employeeData, totalWorkDays, totalSalary, totalFirstHalfSalary, totalSecondHalfSalary, month, year) {
+  const filename = `รายงานสรุปรวม_${thaiMonths[month]}_${year + 543}`;
+
+  // ✅ สร้าง Modal
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl p-8 max-w-7xl w-full mx-4 shadow-2xl max-h-[95vh] overflow-hidden flex flex-col">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-3xl font-bold gradient-text">📊 ${filename}</h3>
+        <button id="closeReportModal" class="text-gray-500 hover:text-gray-700 text-3xl font-bold">×</button>
+      </div>
+
+      <div class="flex-1 overflow-auto space-y-8">
+
+        <!-- 🔹 ตารางสรุปรวม -->
+        <div class="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl shadow-lg">
+          <h4 class="text-xl font-bold mb-4">📌 สรุปรวม</h4>
+          <table class="w-full border-collapse bg-white rounded-xl shadow overflow-hidden">
+            <thead>
+              <tr class="bg-indigo-600 text-white">
+                <th class="px-3 py-2">เดือน</th>
+                <th class="px-3 py-2">ครึ่งแรก</th>
+                <th class="px-3 py-2">ครึ่งหลัง</th>
+                <th class="px-3 py-2">วันทำงานรวม</th>
+                <th class="px-3 py-2">ยอดรวม</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="text-center font-bold">
+                <td class="px-3 py-2">${thaiMonths[month]} ${year + 543}</td>
+                <td class="px-3 py-2 text-orange-600">${totalFirstHalfSalary.toLocaleString()} ฿</td>
+                <td class="px-3 py-2 text-teal-600">${totalSecondHalfSalary.toLocaleString()} ฿</td>
+                <td class="px-3 py-2 text-green-600">${totalWorkDays} วัน</td>
+                <td class="px-3 py-2 text-purple-700">${totalSalary.toLocaleString()} ฿</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 🔹 การ์ดรายคน -->
+        <div>
+          <h4 class="text-xl font-bold mb-4">👥 รายละเอียดรายคน</h4>
+          <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            ${employeeData.map(emp => `
+              <div class="bg-white shadow-xl rounded-xl p-6 hover:shadow-2xl transition">
+                <h4 class="text-lg font-bold text-gray-800 mb-2">👤 ${emp.name}</h4>
+                <p class="text-sm text-gray-500 mb-4">${emp.position}</p>
+                <div class="space-y-1 text-sm">
+                  <p>📊 ครึ่งแรก: <span class="text-orange-600 font-bold">${emp.firstHalfSalary.toLocaleString()} ฿ (${emp.firstHalfDays} วัน)</span></p>
+                  <p>💎 ครึ่งหลัง: <span class="text-teal-600 font-bold">${emp.secondHalfSalary.toLocaleString()} ฿ (${emp.secondHalfDays} วัน)</span></p>
+                  <p>🍚 ค่าข้าว: <span class="text-blue-600 font-bold">${(emp.mealTotal||0).toLocaleString()} ฿</span></p>
+                  <p>➖ หัก: <span class="text-red-600 font-bold">-${(emp.deductions||0).toLocaleString()} ฿</span></p>
+                  <p>➕ ทิป: <span class="text-green-600 font-bold">+${(emp.tips||0).toLocaleString()} ฿</span></p>
+                  <hr class="my-2"/>
+                  <p>🏆 สุทธิ: <span class="text-purple-700 font-extrabold">${emp.netSalary.toLocaleString()} ฿</span></p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- ปุ่ม -->
+      <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mt-6">
+        <button id="downloadAllReport" class="flex-1 neon-button bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white py-4 rounded-xl font-bold transition-all transform hover:scale-105 shadow-2xl">
+          📄 ส่งออกรายงานทั้งหมด (.txt)
+        </button>
+        <button id="closeModal" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-4 rounded-xl font-semibold transition-all">
+          ปิด
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // ปิด modal
+  modal.querySelector('#closeReportModal').addEventListener('click', () => document.body.removeChild(modal));
+  modal.querySelector('#closeModal').addEventListener('click', () => document.body.removeChild(modal));
+
+  // ส่งออก .txt
+  modal.querySelector('#downloadAllReport').addEventListener('click', () => {
+    let detailedReport = `รายงานสรุปการทำงานทั้งหมด\nเดือน: ${thaiMonths[month]} ${year + 543}\n`;
+    detailedReport += `วันรวม: ${totalWorkDays} วัน | ครึ่งแรก: ${totalFirstHalfSalary.toLocaleString()} ฿ | ครึ่งหลัง: ${totalSecondHalfSalary.toLocaleString()} ฿ | รวม: ${totalSalary.toLocaleString()} ฿\n\n`;
+    employeeData.forEach((emp,i) => {
+      detailedReport += `${i+1}. ${emp.name} (${emp.position})\n`;
+      detailedReport += `   ครึ่งแรก: ${emp.firstHalfDays} วัน = ${emp.firstHalfSalary.toLocaleString()} ฿\n`;
+      detailedReport += `   ครึ่งหลัง: ${emp.secondHalfDays} วัน = ${emp.secondHalfSalary.toLocaleString()} ฿\n`;
+      detailedReport += `   ค่าข้าว: ${(emp.mealTotal||0).toLocaleString()} ฿ | หัก: -${(emp.deductions||0).toLocaleString()} ฿ | ทิป: +${(emp.tips||0).toLocaleString()} ฿\n`;
+      detailedReport += `   สุทธิ: ${emp.netSalary.toLocaleString()} ฿\n\n`;
+    });
+    downloadText(`รายงานสรุปทั้งหมด_${thaiMonths[month]}_${year+543}.txt`, detailedReport);
+  });
+
+  // ปิดเมื่อคลิกนอก modal
+  modal.addEventListener('click', e => { if(e.target===modal) document.body.removeChild(modal); });
+}
   </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96fa6cb9014e4b59',t:'MTc1NTI3OTA3Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
