@@ -111,7 +111,7 @@
         <div class="bg-white/85 rounded-xl p-5 border">
           <div class="text-sm text-gray-500 mb-1">รวมการหัก/ทิป ในการคำนวณ</div>
           <label class="switch">
-            <input id="includeAdjToggle" type="checkbox">
+            <input id="includeAdjToggle" type="checkbox" checked>
             <span class="slider"></span>
           </label>
           <div class="text-xs text-gray-500 mt-2">เปิดเมื่ออยากคิดสุทธิ = รวม - หัก + ทิป</div>
@@ -148,7 +148,7 @@
         <div class="flex items-center gap-3">
           <span class="text-sm font-semibold">ปลดล็อกการแก้ไขปฏิทิน</span>
           <label class="switch">
-            <input id="editLockToggle"  type="checkbox">
+            <input id="editLockToggle"  type="checkbox" checked>
             <span class="slider"></span>
           </label>
         </div>
@@ -317,7 +317,7 @@
     // workMap[id][key] = 'work'|'paid'|'absent'  (รายวันใช้ 'work' เท่านั้น)
     // deductions[id] = [{date,amount,note}], tips[id] = [{date,amount,note}]
     let employees={}, workMap={}, deductions={}, tips={};
-    let currentEmployee=null, currentDate=new Date(), editingEmployee=null, employeeCounter=0, calendarUnlocked=true;
+    let currentEmployee=null, currentDate=new Date(), editingEmployee=null, employeeCounter=0, calendarUnlocked=false;
 
     const thaiMonths=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
