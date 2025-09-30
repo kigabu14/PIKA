@@ -148,7 +148,7 @@
         <div class="flex items-center gap-3">
           <span class="text-sm font-semibold">ปลดล็อกการแก้ไขปฏิทิน</span>
           <label class="switch">
-            <input id="editLockToggle" type="checkbox">
+            <input id="editLockToggle"  type="checkbox">
             <span class="slider"></span>
           </label>
         </div>
@@ -317,7 +317,7 @@
     // workMap[id][key] = 'work'|'paid'|'absent'  (รายวันใช้ 'work' เท่านั้น)
     // deductions[id] = [{date,amount,note}], tips[id] = [{date,amount,note}]
     let employees={}, workMap={}, deductions={}, tips={};
-    let currentEmployee=null, currentDate=new Date(), editingEmployee=null, employeeCounter=0, calendarUnlocked=false;
+    let currentEmployee=null, currentDate=new Date(), editingEmployee=null, employeeCounter=0, calendarUnlocked=true;
 
     const thaiMonths=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 
